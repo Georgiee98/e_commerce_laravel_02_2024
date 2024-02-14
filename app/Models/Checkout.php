@@ -32,4 +32,9 @@ class Checkout extends Model
         'terms_accepted',
         'order_notes',
     ];
+
+    public function order()
+    {
+        return $this->belongsTo(Order::class);
+    }
 }
