@@ -11,7 +11,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            $table->string('category')->nullable()->after('id');
+            // Add the category_id column and foreign key constraint
+            $table->unsignedBigInteger('category_id')->nullable()->after('id');
+            $table->foreign('category_id')->references('id')->on('categories')->onDelete('set null');
         });
     }
 
@@ -21,7 +23,9 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('products', function (Blueprint $table) {
-            //
+            // Remove the foreign key constraint and the column
+            $table->dropForeign(['category_id']);
+            $table->dropColumn('category_id');
         });
     }
 };
