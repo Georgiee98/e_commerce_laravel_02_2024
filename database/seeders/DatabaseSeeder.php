@@ -31,5 +31,11 @@ class DatabaseSeeder extends Seeder
                 'role_id' => $adminRole->id
             ]
         );
+
+
+        $this->call([
+            CategorySeeder::class,
+            ProductSeeder::class,
+        ]);
     }
 }

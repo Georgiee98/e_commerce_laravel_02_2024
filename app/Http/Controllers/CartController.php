@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Session;
 
 class CartController extends Controller
 {
+
     // Add a product to the cart
     public function addToCart(Request $request, $productId)
     {
@@ -33,7 +34,12 @@ class CartController extends Controller
         }
 
         session()->put('cart', $cart);
-        return redirect()->back()->with('success', 'Product added to cart successfully!');
+        // return redirect()->back()->with('success', 'Product added to cart successfully!');
+        // Example response testing
+        return response()->json([
+            'success' => true,
+            'cartTotal' => count(session('cart')), // Or however you wish to calculate this
+        ]);
     }
 
     // Display the cart
@@ -48,22 +54,24 @@ class CartController extends Controller
     {
         if ($request->id and $request->quantity) {
             $cart = session()->get('cart');
-            $cart[$request->id]["quantity"] = $request->quantity;
+            $cart[$request->id]['quantity'] = $request->quantity;
             session()->put('cart', $cart);
             session()->flash('success', 'Cart updated successfully');
         }
+        return redirect()->back();
     }
 
     // Remove item from the cart
-    public function removeFromCart(Request $request)
+    public function removeFromCart(Request $request, $productId)
     {
-        if ($request->id) {
-            $cart = session()->get('cart');
-            if (isset($cart[$request->id])) {
-                unset($cart[$request->id]);
-                session()->put('cart', $cart);
-            }
+        $cart = session()->get('cart');
+        if (isset($cart[$productId])) {
+            unset($cart[$productId]);
+            session()->put('cart', $cart);
             session()->flash('success', 'Product removed successfully');
         }
+        return redirect()->back();
     }
+
+
 }
