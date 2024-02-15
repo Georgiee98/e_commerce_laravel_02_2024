@@ -11,11 +11,9 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->string('role')->default('user');
+            $table->unsignedBigInteger('role_id')->nullable(); // Use unsignedBigInteger for foreign keys.
+            $table->foreign('role_id')->references('id')->on('roles')->onDelete('set null');
         });
-        // Schema::table('users', function (Blueprint $table) {
-        //     $table->enum('role', ['user', 'admin'])->default('user');
-        // }); // better but harder to maintein if changed in the future
     }
 
     /**
@@ -24,7 +22,7 @@ return new class extends Migration {
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role');
+            //
         });
     }
 };
