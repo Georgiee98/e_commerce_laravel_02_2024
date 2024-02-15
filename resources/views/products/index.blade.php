@@ -1,5 +1,7 @@
 @extends('layouts.app')
 
+@section('title', 'All Products')
+
 @section('content')
 <div class="container">
     <h2>All Products</h2>
@@ -13,7 +15,10 @@
                 <img src="https://via.placeholder.com/150" class="card-img-top" alt="{{ $product->name }}">
                 @endif
                 <div class="card-body">
-                    <h5 class="card-title">{{ $product->name }}</h5>
+                    <h5 class="card-title">
+                        <a href="{{ route('products.show', $product) }}" style="text-decoration: none;">{{
+                            $product->name }}</a>
+                    </h5>
                     <p class="card-text">{{ $product->description }}</p>
                     <p class="card-text">${{ $product->price }}</p>
                     <!-- Add to Cart Form -->
@@ -21,7 +26,6 @@
                         @csrf
                         <button type="submit" class="btn btn-primary add-to-cart-btn"
                             data-product-id="{{ $product->id }}">Add to Cart</button>
-
                     </form>
                 </div>
             </div>
@@ -29,6 +33,7 @@
         @endforeach
     </div>
 </div>
+
 <script>
     $(document).ready(function () {
         $('.add-to-cart-btn').click(function () {

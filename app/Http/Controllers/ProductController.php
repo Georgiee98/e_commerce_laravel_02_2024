@@ -36,4 +36,10 @@ class ProductController extends Controller
 
         return back()->with('success', 'Product added successfully!');
     }
+
+    // Show single product details
+    public function show(Product $product)
+    {
+        return view('products.show', compact('product'));
+    }
 }

@@ -11,44 +11,80 @@ class CartController extends Controller
 {
 
     // Add a product to the cart
-    public function addToCart(Request $request, $productId)
+    public function add(Request $request, $productId)
     {
-        $product = Product::find($productId);
-        if (!$product) {
-            abort(404);
-        }
+        // Retrieve the product
+        $product = Product::findOrFail($productId);
 
+        // Check if the product has an image set
+        $image = $product->image ?? null;
+
+        // Retrieve the cart from the session
         $cart = session()->get('cart', []);
 
-        // If the product is already in the cart, increment the quantity
+        // Check if the product is already in the cart
         if (isset($cart[$productId])) {
+            // Increment the quantity
             $cart[$productId]['quantity']++;
         } else {
-            // If not, add it to the cart with quantity = 1
+            // Add the product to the cart
             $cart[$productId] = [
                 "name" => $product->name,
                 "quantity" => 1,
                 "price" => $product->price,
-                "photo" => $product->photo // Assuming your Product model has a photo field
+                "image" => $image // Set the image from the product
             ];
         }
 
+        // Update the cart in the session
         session()->put('cart', $cart);
-        // return redirect()->back()->with('success', 'Product added to cart successfully!');
-        // Example response testing
-        return response()->json([
-            'success' => true,
-            'cartTotal' => count(session('cart')), // Or however you wish to calculate this
-        ]);
+
+        // Return the updated cart total
+        return response()->json(['cartTotal' => count(session()->get('cart'))]);
+        // {
+        //     $product = Product::find($productId);
+        //     if (!$product) {
+        //         abort(404);
+        //     }
+
+        //     $cart = session()->get('cart', []);
+
+        //     // If the product is already in the cart, increment the quantity
+        //     if (isset($cart[$productId])) {
+        //         $cart[$productId]['quantity']++;
+        //     } else {
+        //         // If not, add it to the cart with quantity = 1
+        //         $cart[$productId] = [
+        //             "name" => $product->name,
+        //             "quantity" => 1,
+        //             "price" => $product->price,
+        //             "image" => $product->image
+        //         ];
+        //     }
+
+        //     session()->put('cart', $cart);
+        //     // return redirect()->back()->with('success', 'Product added to cart successfully!');
+        //     // Example response testing
+        //     return response()->json([
+        //         'success' => true,
+        //         'cartTotal' => count(session('cart')), // Or however you wish to calculate this
+        //     ]);
+        // }
     }
 
     // Display the cart
-    public function showCart()
+    public function show()
     {
         $cart = session()->get('cart');
-        return view('cart', compact('cart'));
-    }
+        $total = 0; // Initialize total sum
 
+        // Calculate total sum of all items in the cart
+        foreach ($cart as $details) {
+            $total += $details['quantity'] * $details['price'];
+        }
+
+        return view('cart.show', compact('cart', 'total'));
+    }
     // Update the cart
     public function updateCart(Request $request)
     {
