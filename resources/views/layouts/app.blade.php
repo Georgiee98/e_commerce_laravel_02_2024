@@ -8,10 +8,7 @@
     <script src="https://sandbox.web.squarecdn.com/v1/square.js"></script>
 
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Additional CSS stylesheets or inline styles can be added here -->
-    <style>
-        /* Add custom styles here */
-    </style>
+    @yield('styles')
     @yield('scripts')
     <!-- Include scripts defined in content pages -->
 </head>
