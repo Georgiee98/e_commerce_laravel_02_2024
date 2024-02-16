@@ -1,4 +1,5 @@
 <?php
+use App\Http\Controllers\SquareController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\CartController;
@@ -41,3 +42,12 @@ Route::post('/checkout', [CheckoutController::class, 'checkout'])->name('checkou
 Route::get('/checkout', [PaymentController::class, 'showCheckout'])->name('checkout.show');
 // Process payment
 Route::post('/process-payment', [PaymentController::class, 'processPayment'])->name('payment.process');
+// Route::post('/payment/process', [PaymentController::class, 'processPayment'])->name('payment.process');
+
+
+Route::get('/square', [SquareController::class, 'index'])->name('square');
+
+
+Route::post('/test', function () {
+    return response()->json(['message' => 'Route is working']);
+});

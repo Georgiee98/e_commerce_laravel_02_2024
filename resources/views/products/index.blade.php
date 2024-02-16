@@ -5,6 +5,7 @@
 @section('content')
 <div class="container">
     <h2>All Products</h2>
+    <h4><a href="/cart">Cart</a></h4>
     <div class="row">
         @foreach($products as $product)
         <div class="col-md-4">
@@ -28,6 +29,7 @@
                             data-product-id="{{ $product->id }}">Add to Cart</button>
                     </form>
                 </div>
+
             </div>
         </div>
         @endforeach

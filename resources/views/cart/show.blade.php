@@ -5,7 +5,6 @@
     <h2>Your Shopping Cart</h2>
 
     <!-- Display total sum -->
-    <h5>Total: ${{ number_format($total, 2) }}</h5>
 
     <!-- Display cart items -->
     @if(session('cart') && count(session('cart')) > 0)
@@ -43,11 +42,10 @@
         </table>
         <!-- Cart items -->
 
-        <form action="{{ route('checkout') }}" method="POST">
-            @csrf
-            <button type="submit" class="btn btn-success">Checkout</button>
-        </form>
-        <a href="{{ route('checkout.show') }}" class="btn btn-success">Cart</a>
+
+        <a href="{{ route('checkout.show') }}" class="btn btn-success">Checkout</a>
+
+
 
     </div>
     @else

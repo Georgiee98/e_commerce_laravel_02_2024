@@ -41,49 +41,20 @@ class CartController extends Controller
 
         // Return the updated cart total
         return response()->json(['cartTotal' => count(session()->get('cart'))]);
-        // {
-        //     $product = Product::find($productId);
-        //     if (!$product) {
-        //         abort(404);
-        //     }
-
-        //     $cart = session()->get('cart', []);
-
-        //     // If the product is already in the cart, increment the quantity
-        //     if (isset($cart[$productId])) {
-        //         $cart[$productId]['quantity']++;
-        //     } else {
-        //         // If not, add it to the cart with quantity = 1
-        //         $cart[$productId] = [
-        //             "name" => $product->name,
-        //             "quantity" => 1,
-        //             "price" => $product->price,
-        //             "image" => $product->image
-        //         ];
-        //     }
-
-        //     session()->put('cart', $cart);
-        //     // return redirect()->back()->with('success', 'Product added to cart successfully!');
-        //     // Example response testing
-        //     return response()->json([
-        //         'success' => true,
-        //         'cartTotal' => count(session('cart')), // Or however you wish to calculate this
-        //     ]);
-        // }
     }
 
     // Display the cart
     public function show()
     {
-        $cart = session()->get('cart');
-        $total = 0; // Initialize total sum
+        // $cart = session()->get('cart');
+        // $total = 0; // Initialize total sum
 
-        // Calculate total sum of all items in the cart
-        foreach ($cart as $details) {
-            $total += $details['quantity'] * $details['price'];
-        }
+        // // Calculate total sum of all items in the cart
+        // foreach ($cart as $details) {
+        //     $total += $details['quantity'] * $details['price'];
+        // }
 
-        return view('cart.show', compact('cart', 'total'));
+        return view('cart.show'); //, compact('cart', 'total'));
     }
     // Update the cart
     public function updateCart(Request $request)
