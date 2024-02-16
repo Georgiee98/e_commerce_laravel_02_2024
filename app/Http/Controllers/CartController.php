@@ -46,15 +46,15 @@ class CartController extends Controller
     // Display the cart
     public function show()
     {
-        // $cart = session()->get('cart');
-        // $total = 0; // Initialize total sum
+        $cart = session()->get('cart');
+        $total = 0; // Initialize total sum
 
-        // // Calculate total sum of all items in the cart
-        // foreach ($cart as $details) {
-        //     $total += $details['quantity'] * $details['price'];
-        // }
+        // Calculate total sum of all items in the cart
+        foreach ($cart as $details) {
+            $total += $details['quantity'] * $details['price'];
+        }
 
-        return view('cart.show'); //, compact('cart', 'total'));
+        return view('cart.show', compact('cart', 'total'));
     }
     // Update the cart
     public function updateCart(Request $request)

@@ -1,0 +1,128 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use Illuminate\Http\Request;
+use App\Services\SquareService;
+use Illuminate\Support\Facades\Log; // Import the Log facade for logging
+use Square\SquareClient;
+use Square\Models\Money;
+use Square\Models\CreatePaymentRequest;
+use Square\Exceptions\ApiException;
+use App\Models\Payment;
+use App\Models\Order;
+use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderConfirmation;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
+use Illuminate\Support\Str;
+
+class PaymentController extends Controller
+{
+    protected $squareService;
+
+    // Dependency injection of the SquareService
+    public function __construct(SquareService $squareService)
+    {
+        $this->squareService = $squareService;
+    }
+    public function showCheckout(Request $request)
+    {
+        $total = $request->query('total');
+        // Retrieve the cart data from the session
+        $cart = session()->get('cart', []);
+
+        // Check if $cart is null or if totalAmount key is not set
+        // if (is_null($cart) || !isset($cart['totalAmount'])) {
+        //     // Set a default value for totalAmount or handle the missing cart data as needed
+        //     // For example, you can redirect back with an error message
+        //     return redirect()->back()->withErrors('Cart data is missing or invalid.');
+        // }
+
+        // If the cart data is valid, continue with displaying the checkout page
+        return view('checkout.show', compact('cart', 'total'));
+    }
+
+    private function handleUser($request)
+    {
+        if (Auth::check()) {
+            return Auth::user();
+        } else {
+            $name = $request->input('name', 'Guest User');
+            $email = $request->input('email');
+
+            return User::create([
+                'name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(24)), // generates a random string of 24 characters to act as temporary password
+            ]);
+        }
+    }
+
+    private function createOrder($user, $cartItems, $totalAmount)
+    {
+        $order = Order::create([
+            'user_id' => $user->id,
+            'total_amount' => $totalAmount, // Ensure this is correctly formatted
+            'status' => 'Paid',
+        ]);
+
+        foreach ($cartItems as $item) {
+            $order->items()->create([
+                'product_id' => $item['id'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+            ]);
+        }
+
+        return $order;
+    }
+
+    public function processPayment(Request $request)
+    {
+        $nonce = $request->input('nonce');
+        if (is_null($nonce)) {
+            return response()->json(['error' => 'Payment information is missing.']);
+        }
+
+        $totalAmount = $request->input('totalAmount'); // Ensure this is correctly passed from the frontend
+        $client = new SquareClient([
+            'accessToken' => config('services.square.access_token'),
+            'environment' => \Square\Environment::SANDBOX,
+        ]);
+
+        $amountMoney = new Money();
+        $amountMoney->setAmount($totalAmount * 100); // Adjust according to currency smallest unit
+        $amountMoney->setCurrency('MKD');
+
+        $paymentBody = new CreatePaymentRequest($nonce, uniqid(), $amountMoney);
+        \DB::enableQueryLog();
+        // Your order processing logic here
+        Log::info(\DB::getQueryLog());
+
+        try {
+            $result = $client->getPaymentsApi()->createPayment($paymentBody);
+
+            if ($result->isSuccess()) {
+                $user = $this->handleUser($request); // A method to handle user logic
+
+                $cartItems = session()->get('cart', []);
+                $order = $this->createOrder($user, $cartItems, $totalAmount); // Method to create order and order items
+
+                Mail::to($user->email)->send(new OrderConfirmation($order, $user));
+
+                session()->forget('cart'); // Clear the cart session after successful order creation
+
+                return response()->json(['status' => 'success', 'message' => 'Payment processed successfully']);
+            } else {
+                return response()->json(['status' => 'error', 'message' => $result->getErrors()]);
+            }
+        } catch (ApiException $e) {
+            return response()->json(['status' => 'exception', 'message' => $e->getMessage()]);
+        }
+    }
+
+
+}

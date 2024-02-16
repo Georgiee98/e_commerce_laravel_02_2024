@@ -5,6 +5,8 @@
     <h2>Your Shopping Cart</h2>
 
     <!-- Display total sum -->
+    <p>Total Price: ${{$total}}</p>
+
 
     <!-- Display cart items -->
     @if(session('cart') && count(session('cart')) > 0)
@@ -43,7 +45,9 @@
         <!-- Cart items -->
 
 
-        <a href="{{ route('checkout.show') }}" class="btn btn-success">Checkout</a>
+        <a href="{{ route('checkout.show') }}?total={{ $total }}" class="btn btn-success">Checkout</a>
+
+
 
 
 

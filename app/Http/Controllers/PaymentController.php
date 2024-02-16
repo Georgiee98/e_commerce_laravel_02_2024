@@ -11,6 +11,13 @@ use Square\Models\CreatePaymentRequest;
 use Square\Exceptions\ApiException;
 use App\Models\Payment;
 use App\Models\Order;
+use App\Models\User;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderConfirmation;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class PaymentController extends Controller
 {
@@ -21,8 +28,9 @@ class PaymentController extends Controller
     {
         $this->squareService = $squareService;
     }
-    public function showCheckout()
+    public function showCheckout(Request $request)
     {
+        $total = $request->query('total');
         // Retrieve the cart data from the session
         $cart = session()->get('cart', []);
 
@@ -34,24 +42,21 @@ class PaymentController extends Controller
         // }
 
         // If the cart data is valid, continue with displaying the checkout page
-        return view('checkout.show', compact('cart'));
+        return view('checkout.show', compact('cart', 'total'));
     }
 
     public function processPayment(Request $request)
     {
-        // Dump the request data to see what is being received
-        dd($request->all());
-        \Log::debug('Processing payment', $request->all());
-        var_dump($request->all());
 
-        // Retrieve the payment nonce from the request
+        // Retrieve the payment nonce and total amount from the request
         $nonce = $request->input('nonce');
+        $totalAmount = $request->input('totalAmount'); // Ensure this is in the smallest currency unit if necessary
+
         if (is_null($nonce)) {
-            // Immediately return an error response if the nonce is missing
             return response()->json(['error' => 'Payment information is missing.']);
         }
 
-        // Set up the Square client
+        // Set up the Square client with appropriate environment and access token
         $client = new SquareClient([
             'accessToken' => config('services.square.access_token'),
             'environment' => \Square\Environment::SANDBOX,
@@ -59,85 +64,73 @@ class PaymentController extends Controller
 
         // Define the payment amount and currency
         $amountMoney = new Money();
-        $amountMoney->setAmount(100); // Example amount in smallest currency unit (e.g., cents)
-        $amountMoney->setCurrency('CHF');
+        $amountMoney->setAmount($totalAmount); // Assuming totalAmount is correctly formatted
+        $amountMoney->setCurrency('MKD'); // Set to your desired currency
 
         // Create the payment request
-        $paymentBody = new CreatePaymentRequest(
-            $nonce,
-            uniqid(), // A unique ID for the transaction
-            $amountMoney
-        );
-
+        $paymentBody = new CreatePaymentRequest($nonce, uniqid(), $amountMoney);
+        DB::beginTransaction();
         try {
-            // Attempt to process the payment with Square
             $result = $client->getPaymentsApi()->createPayment($paymentBody);
 
             if ($result->isSuccess()) {
+                // Extract the payment result
                 $paymentResult = $result->getResult()->getPayment();
 
-                // Example: Store payment details in the database
-                // Ensure you replace `$orderId` with how you retrieve the actual order ID in your app
-                $orderId = $this->getOrderId($request); // You'll need to implement this method
+                // Determine if the user is authenticated or a guest
+                if (Auth::check()) {
+                    $user = Auth::user();
+                    // Send email to registered user
+                    // Mail::to($user->email)->send(new RegisteredUserOrderConfirmation($order, $user));
+                } else {
+                    // For a guest user, create a new user account or handle as desired
+                    $name = $request->input('nameOnCard', 'Guest User');
+                    $email = $request->input('email');
 
-                Payment::create([
-                    'order_id' => $orderId,
-                    'amount' => $paymentResult->getAmountMoney()->getAmount(),
-                    'status' => 'Completed', // Example status
-                    'payment_method' => 'Square',
-                ]);
+                    $user = User::create([
+                        'nameOnCard' => $name,
+                        'email' => $email,
+                        'password' => Hash::make(Str::random(24)), // Consider sending a password reset link instead
+                    ]);
 
-                // Optionally, update the order status in your database
-                $order = Order::find($orderId);
-                if ($order) {
-                    $order->update(['status' => 'Paid']);
+                    // Send email to guest user
+                    // Mail::to($user->email)->send(new GuestUserOrderConfirmation($order, $user));
+                    // Trigger password reset/link email to the user
+                    // Password::sendResetLink(['email' => $email]);
                 }
 
-                return response()->json(['status' => 'success', 'message' => 'Payment processed successfully']);
+                // Retrieve cart items from session or request
+                $cartItems = session()->get('cart', []);
+
+                // Create the order
+                $order = Order::create([
+                    'user_id' => $user->id,
+                    'total_amount' => 100,//$totalAmount / 100, // Adjust if your amount is in the smallest currency unit
+                    'status' => 'Paid',
+                ]);
+
+                // Iterate over cart items to create order items
+                foreach ($cartItems as $item) {
+                    $order->items()->create([
+                        'product_id' => $item['id'],
+                        'quantity' => $item['quantity'],
+                        'price' => $item['price'],
+                    ]);
+                }
+
+                // Clear the cart session after order creation
+                session()->forget('cart');
+
+                // Send order confirmation email
+                Mail::to($user->email)->send(new OrderConfirmation($order, $user));
+
+                return response()->json(['status' => 'success', 'message' => 'Payment processed and order created successfully.']);
             } else {
-                // Handle the case where Square returned errors
                 return response()->json(['status' => 'error', 'message' => $result->getErrors()]);
             }
-
         } catch (ApiException $e) {
-            // Handle any exceptions thrown during the payment process
             return response()->json(['status' => 'exception', 'message' => $e->getMessage()]);
         }
+
     }
 }
-
-// {
-//     $amount = $request->amount; // Ensure this is in minor units (e.g., cents)
-//     $nonce = $request->nonce; // Nonce from the payment form
-//     $billingAddress = $request->input('billing_address');
-
-//     $paymentResult = $this->squareService->createPayment($amount, $nonce);
-
-//     if (isset($paymentResult['error'])) {
-//         return back()->withErrors('Payment failed: ' . $paymentResult['error']);
-//     }
-
-//     // Handle successful payment (e.g., save order details, clear cart)
-//     return redirect()->route('home')->with('success', 'Payment successful!');
-// }
-// public function processPayment(Request $request)
-// {
-//     $amount = $request->amount * 100; // Convert to smallest currency unit, e.g., cents for USD
-//     $nonce = $request->nonce; // Payment token generated by Square Web Payments SDK
-//     $idempotencyKey = uniqid(); // Generate a unique idempotency key
-
-//     // Attempt to process the payment
-//     $result = $this->squareService->createPayment($amount, $nonce, $idempotencyKey);
-
-//     if ($result && isset($result['payment'])) {
-//         // Assuming createPayment returns an array with a 'payment' key on success
-//         // Handle successful payment (e.g., save order details to database, clear cart)
-//         session()->forget('cart');
-//         return redirect()->route('home')->with('success', 'Payment successful and order placed!');
-//     } else {
-//         // Log the error for debugging
-//         Log::error('Payment failed', ['result' => $result]);
-//         // Handle payment failure
-//         return back()->withErrors('Payment failed. Please try again.');
-//     }
-// }
