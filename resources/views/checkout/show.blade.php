@@ -51,74 +51,73 @@
 
 @section('scripts')
 <script type="module">
-const applicationId = "{{ env('SQUARE_SANDBOX_APPLICATION_ID') }}";
-const accessToken = "{{ env('SQUARE_SANDBOX_ACCESS_TOKEN') }}";
+    const applicationId = "{{ env('SQUARE_SANDBOX_APPLICATION_ID') }}";
+    const accessToken = "{{ env('SQUARE_SANDBOX_ACCESS_TOKEN') }}";
 
-const payments = Square.payments(applicationId, accessToken);
-const card = await payments.card();
-await card.attach('#card-container');
+    const payments = Square.payments(applicationId, accessToken);
+    const card = await payments.card();
+    await card.attach('#card-container');
 
-const cardButton = document.getElementById('card-button');
-const loader = document.getElementById('loader');
-const totalAmountInput = document.getElementById('totalAmount');
-const totalAmount = parseFloat(totalAmountInput.value); // Retrieve the total amount
+    const cardButton = document.getElementById('card-button');
+    const loader = document.getElementById('loader');
+    const totalAmountInput = document.getElementById('totalAmount');
+    const totalAmount = parseFloat(totalAmountInput.value); // Retrieve the total amount
 
-cardButton.addEventListener('click', async () => {
-    const statusContainer = document.getElementById('payment-status-container');
+    cardButton.addEventListener('click', async () => {
+        const statusContainer = document.getElementById('payment-status-container');
 
-    // Show the loader
-    loader.style.display = 'block';
+        // Show the loader
+        loader.style.display = 'block';
 
-    const email = document.getElementById('email').value;
-    const nameOnCard = document.getElementById('nameOnCard').value;
+        const email = document.getElementById('email').value;
+        const nameOnCard = document.getElementById('nameOnCard').value;
 
-    try {
-        const result = await card.tokenize();
-        if (result.status === 'OK') {
-            console.log(`Payment token is ${result.token}`);
-            statusContainer.innerHTML = "Payment Successful";
-            console.log(`Payment token is ${result.token}`);
-            statusContainer.innerHTML = "Payment Successful";
-            // Disable the button and update its text
-            cardButton.disabled = true;
-            cardButton.innerText = `Payment Completed $${totalAmount}`;
+        try {
+            const result = await card.tokenize();
+            if (result.status === 'OK') {
+                console.log(`Payment token is ${result.token}`);
+                statusContainer.innerHTML = "Payment Successful";
+                // Disable the button and update its text
+                cardButton.disabled = true;
+                cardButton.innerText = `Payment Completed $${totalAmount}`;
 
+                // Add logic to send payment token and total amount to the backend
+                const response = await fetch('/process-payment', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}' // Add CSRF token if you're using Laravel
+                    },
+                    body: JSON.stringify({
+                        nonce: result.token,
+                        totalAmount: totalAmount,
+                        email: email,
+                        nameOnCard: nameOnCard
+                    })
+                });
 
-            // Add logic to send payment token and total amount to the backend
-            // You can use fetch or Axios to send a POST request to your backend
-            // Example using fetch:
-            const response = await fetch('/process-payment', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}' // Add CSRF token if you're using Laravel
-                },
-                body: JSON.stringify({
-                    nonce: result.token,
-                    totalAmount: totalAmount,
-                    email: email,
-                    nameOnCard: nameOnCard
-                })
-            });
-            const data = await response.json();
-            console.log(data); // Log the response from the backend
-        } else {
-            let errorMessage = `Tokenization failed with status: ${result.status}`;
-            if (result.errors) {
-                errorMessage += ` and errors: ${JSON.stringify(
-                        result.errors
-                    )}`;
+                const data = await response.json();
+                if (data.status === 'error') {
+                    console.error('Error:', data.message);
+                    // Display the error message in the UI
+                    statusContainer.innerHTML = "Payment Failed: " + data.message;
+                } else {
+                    // Handle success
+                }
+            } else {
+                let errorMessage = `Tokenization failed with status: ${result.status}`;
+                if (result.errors) {
+                    errorMessage += ` and errors: ${JSON.stringify(result.errors)}`;
+                }
+                throw new Error(errorMessage);
             }
-
-            throw new Error(errorMessage);
+        } catch (e) {
+            console.error(e);
+            statusContainer.innerHTML = "Payment Failed";
+        } finally {
+            // Hide the loader when the process completes
+            loader.style.display = 'none';
         }
-    } catch (e) {
-        console.error(e);
-        statusContainer.innerHTML = "Payment Failed";
-    } finally {
-        // Hide the loader when the process completes
-        loader.style.display = 'none';
-    }
-});
+    });
 </script>
 @endsection

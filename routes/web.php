@@ -23,6 +23,9 @@ Route::get('/category/{categoryName}', [ProductController::class, 'showProductsB
 // Orders
 Route::get('/orders', [OrderController::class, 'index']);
 Route::get('/orders/{id}', [OrderController::class, 'show']);
+
+Route::post('/create-order', [OrderController::class, 'store'])->name('order.store');
+
 // Add more routes as needed for other CRUD operations
 
 

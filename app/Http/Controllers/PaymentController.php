@@ -128,8 +128,17 @@ class PaymentController extends Controller
             } else {
                 return response()->json(['status' => 'error', 'message' => $result->getErrors()]);
             }
-        } catch (ApiException $e) {
-            return response()->json(['status' => 'exception', 'message' => $e->getMessage()]);
+            // } catch (ApiException $e) {
+            //     return response()->json(['status' => 'exception', 'message' => $e->getMessage()]);
+            // }
+        } catch (\Exception $e) {
+            Log::error("An error occurred: " . $e->getMessage());
+            DB::rollBack();
+            return response()->json(['status' => 'exception', 'message' => 'An unexpected error occurred.']);
+        } catch (\Throwable $e) {
+            Log::error("A throwable error occurred: " . $e->getMessage());
+            DB::rollBack();
+            return response()->json(['status' => 'exception', 'message' => 'A critical error occurred.']);
         }
 
     }

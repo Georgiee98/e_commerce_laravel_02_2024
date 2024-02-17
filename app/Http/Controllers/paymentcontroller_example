@@ -126,3 +126,121 @@ class PaymentController extends Controller
 
 
 }
+
+
+
+// another exmaple
+
+
+use Illuminate\Http\Request;
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\User;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use App\Mail\OrderConfirmation;
+use Square\SquareClient;
+use Square\Models\CreatePaymentRequest;
+use Square\Models\Money;
+use Square\Exceptions\ApiException;
+
+class CheckoutController extends Controller
+{
+    public function processPayment(Request $request)
+    {
+        // Validation for request data
+        $validated = $request->validate([
+            'nonce' => 'required',
+            'totalAmount' => 'required|numeric',
+            'email' => 'required|email',
+            'nameOnCard' => 'nullable|string',
+        ]);
+
+        $nonce = $validated['nonce'];
+        $totalAmount = $validated['totalAmount'] * 100; // Convert to smallest currency unit if necessary
+
+        // Initialize Square client
+        $client = new SquareClient([
+            'accessToken' => config('services.square.access_token'),
+            'environment' => \Square\Environment::SANDBOX,
+        ]);
+
+        $amountMoney = new Money();
+        $amountMoney->setAmount($totalAmount);
+        $amountMoney->setCurrency('MKD');
+
+        $paymentBody = new CreatePaymentRequest($nonce, uniqid(), $amountMoney);
+
+        DB::beginTransaction();
+
+        try {
+            $result = $client->getPaymentsApi()->createPayment($paymentBody);
+
+            if (!$result->isSuccess()) {
+                DB::rollBack();
+                return response()->json(['status' => 'error', 'message' => $result->getErrors()]);
+            }
+
+            $paymentResult = $result->getResult()->getPayment();
+
+            $user = $this->handleUser($request);
+
+            $order = $this->createOrder($user, $request);
+
+            $this->clearCart();
+
+            DB::commit();
+
+            Mail::to($user->email)->send(new OrderConfirmation($order, $user));
+
+            return response()->json(['status' => 'success', 'message' => 'Payment processed and order created successfully.']);
+        } catch (ApiException $e) {
+            DB::rollBack();
+            return response()->json(['status' => 'exception', 'message' => $e->getMessage()]);
+        }
+    }
+
+    protected function handleUser($request)
+    {
+        if (Auth::check()) {
+            return Auth::user();
+        } else {
+            return User::create([
+                'name' => $request->input('nameOnCard', 'Guest User'),
+                'email' => $request->input('email'),
+                'password' => Hash::make(Str::random(24)), // Or handle guest users differently
+            ]);
+        }
+    }
+
+    protected function createOrder($user, $request)
+    {
+        $cartItems = session('cart', []);
+        $totalAmount = array_sum(array_map(function ($item) {
+            return $item['price'] * $item['quantity'];
+        }, $cartItems));
+
+        $order = Order::create([
+            'user_id' => $user->id,
+            'total_amount' => $totalAmount,
+            'status' => 'Paid',
+        ]);
+
+        foreach ($cartItems as $item) {
+            $order->items()->create([
+                'product_id' => $item['id'],
+                'quantity' => $item['quantity'],
+                'price' => $item['price'],
+            ]);
+        }
+
+        return $order;
+    }
+
+    protected function clearCart()
+    {
+        session()->forget('cart');
+    }
+}
