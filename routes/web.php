@@ -7,6 +7,7 @@ use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\OrderItemController;
 use App\Http\Controllers\PaymentController;
+use Illuminate\Support\Facades\Artisan;
 
 Route::get('/', function () {
     return view('welcome');
@@ -52,5 +53,14 @@ Route::get('/square', [SquareController::class, 'index'])->name('square');
 
 
 Route::post('/test', function () {
+    Artisan::call('cache:clear');
+    Artisan::call('route:clear');
+    Artisan::call('config:clear');
+    Artisan::call('view:clear');
+    Artisan::call('event:clear');
+    Artisan::call('optimize');
+    Artisan::call('config:cache');
+    Artisan::call('route:cache');
+
     return response()->json(['message' => 'Route is working']);
 });
